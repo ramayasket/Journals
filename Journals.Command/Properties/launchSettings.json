@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Journals.Command": {
+        "commandName": "Project",
+        "commandLineArgs": "Journals.ASample.dll"
+        //"commandLineArgs": "T:\\b2broker\\dev\\logs\\ Journals.ASample.dll"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+﻿[*.cs]
+
+# IDE0005: Using directive is unnecessary.
+dotnet_diagnostic.IDE0005.severity = none
+
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.CS0168.severity = none
