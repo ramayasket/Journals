@@ -11,7 +11,7 @@ namespace Journals
         public readonly long BufferSize;
         public readonly List<FastSerilogLine> Buffer;
 
-        Processor _defaultProcessor = new Processor { Process = x => x };
+        Processor _defaultProcessor = new NullProcessor();
         Processor _processor;
 
         public long Number = 1;

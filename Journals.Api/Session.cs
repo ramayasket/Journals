@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Reflection;
 
 namespace Journals.Api
 {
@@ -22,7 +24,14 @@ namespace Journals.Api
         /// <summary>
         /// Describes how data is processed before being output.
         /// </summary>
-        public Processor[] Processors;
+        public virtual Processor[] Processors =>
+            GetType()
+                .Assembly
+                .GetTypes()
+                .Where(x => typeof(Processor).IsAssignableFrom(x) && !x.IsAbstract)
+                .Select(x => x.GetConstructor(new []{typeof(Session)}))
+                .Select(x => (Processor) x.Invoke(new [] { this }))
+                .ToArray();
 
         /// <summary>
         /// Reads journals out of log directory.

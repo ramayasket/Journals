@@ -27,22 +27,63 @@ namespace Journals
         }
     }
 
-    public class AProcessor : ProcessorWithCutoff
+    public class AProcessor : Processor
     {
+        public AProcessor(Session session) : base(session) { }
+
+        public override Column[] Columns => Session.Columns;
+
+        public override FastSerilogLine Process(FastSerilogLine line)
+        {
+            var at = line.At("@x");
+            // this is just a placeholder
+            if (null == at) return null;
+            return line;
+        }
+    }
+
+    public class BProcessor : ProcessorWithCutoff
+    {
+        int count;
+
+        public BProcessor(Session session) : base(session) { }
+
+        public override Column[] Columns { get; } = 
+        {
+            new Column(8, "@t"),
+            new Column(0, "@mt"),
+        };
+
+        public override FastSerilogLine Process(FastSerilogLine line)
+        {
+            if(IsAfterCutoff(line))
+            {
+                if (null != line["@x"])
+                {
+                    count++;
+                    if (count % 3 == 0)
+                        return new FastSerilogLine { ["@mt"] = $"Error count: {count}", ["@t"] = DateTime.Now.ToString() };
+                }
+            }
+            return null;
+        }
     }
 
     public abstract class ProcessorWithCutoff : Processor
     {
         public static readonly DateTime Cutoff = DateTime.Now;
 
-                public override string ToString() => this.GetType().Name;
+        protected ProcessorWithCutoff(Session session) : base(session)
+        {
+            Console.WriteLine($"Cutoff time is {Cutoff:T}");
+        }
 
         public static bool IsAfterCutoff(FastSerilogLine line)
         {
             var t = DateTime.Parse(line["@t"]);
             return
-                //t >= Cutoff;
-                true;
+                t >= Cutoff;
+                //true;
         }
     }
 
@@ -62,25 +103,6 @@ namespace Journals
             };
 
             BufferSize = 100;
-
-            Processors = new[]
-            {
-                new AProcessor
-                {
-                    Name = "AProcessor",
-                    Process = x =>
-                    {
-                        if (ProcessorWithCutoff.IsAfterCutoff(x))
-                        {
-                            var at = x.At("@x");
-                            // this is just a placeholder
-                            return null == at ? null : x;
-                        }
-
-                        return null;
-                    },
-                }
-            };
         }
 
         public override void GetJournals(string directory, out Journal[] journals)
@@ -93,7 +115,7 @@ namespace Journals
         {
             var maker = new AMaker();
 
-            var files = Directory.EnumerateFiles(directory);
+            var files = Directory.EnumerateFiles(directory).ToArray();
 
             journals = files.Select(maker.FromName).Where(x => null != x).ToArray();
 

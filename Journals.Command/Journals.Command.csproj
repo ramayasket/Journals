@@ -9,7 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.CodeDom" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Journals.Api\Journals.Api.csproj" />
+    <ProjectReference Include="..\Journals.ASample\Journals.ASample.csproj" />
   </ItemGroup>
 
 </Project>

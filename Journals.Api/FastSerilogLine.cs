@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Newtonsoft.Json.Linq;
 
@@ -33,6 +34,17 @@ namespace Journals.Api
         /// <param name="name">Field name.</param>
         /// <returns>Field value.</returns>
         public string At(string name) => this[name];
+
+        public T? At<T>(string name) where T : struct
+        {
+            var at = this[name];
+            if (null != at)
+                return (T)typeof(T)
+                    .GetMethod("Parse", new[] { typeof(string) })?
+                    .Invoke(null, new[] { this[name] });
+
+            return null;
+        }
 
         unsafe string[] ParseJsonFast(string line)
         {
@@ -202,6 +214,10 @@ namespace Journals.Api
                 return;
 
             throw new InvalidOperationException("Unexpected character after a value");
+        }
+
+        public FastSerilogLine()
+        {
         }
 
         /// <summary>

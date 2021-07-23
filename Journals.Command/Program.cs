@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom.Compiler;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,12 +11,18 @@ using Watch.API;
 
 namespace Journals.Command
 {
+    /// <summary> Άρχων κάνων </summary>
+    /// <remarks> https://ru.wikipedia.org/wiki/Канонарх </remarks>
     class Program
     {
-        static void AcceptCommandLine(string[] args, out string directory, out string assembly)
+        static void AcceptCommandLine(string[] args, out string directory, out string assembly, out string processor)
         {
             directory = null;
             assembly = null;
+            processor = null;
+
+            // using System.CodeDom.Compiler;
+            CodeDomProvider provider = CodeDomProvider.CreateProvider("C#");
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -48,12 +55,17 @@ namespace Journals.Command
                         Console.WriteLine($"session_assembly_path is {assembly}");
                     }
                 }
+                else if (provider.IsValidIdentifier(param))
+                {
+                    processor = param;
+                    Console.WriteLine($"processor_name is {processor}");
+                }
             }
         }
 
         const string COMMAND = "Journals.Command";
 
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
             var executing = Assembly.GetExecutingAssembly();
             var name = executing.GetName();
@@ -61,14 +73,15 @@ namespace Journals.Command
 
             Console.WriteLine($"{COMMAND} {version}");
 
-            AcceptCommandLine(args, out string directory, out string assembly);
+            AcceptCommandLine(args, out string directory, out string assembly, out string processorName);
 
             directory ??= Environment.GetEnvironmentVariable("JOURNALS_PATH");
+            directory ??= Environment.CurrentDirectory;
 
             if (null == directory || null == assembly)
             {
-                Console.WriteLine($"Usage: {COMMAND} log_directory_path\\ session_assembly_path.dll");
-                return;
+                Console.WriteLine($"Usage: {COMMAND} [log_directory_path\\] session_assembly_path.dll [processor_name]");
+                return 1;
             }
 
             try
@@ -80,27 +93,33 @@ namespace Journals.Command
                     if (null == Session)
                     {
                         Console.WriteLine($"Couldn't find any session(s) in the assembly {assembly}.");
-                        return;
+                        return 1;
                     }
                 }
             }
             catch (Exception x)
             {
                 Console.WriteLine($"Couldn't read from the assembly file {assembly}.");
-                return;
+                return 1;
             }
 
             Session.GetJournals(directory, out var journals);
 
-            var processor = Session.Processors.FirstOrDefault() ?? new Processor { Name = "*", Process = x => x };
+            IQueryable<Processor> processors = Session.Processors.AsQueryable();
 
-            var buffer = new FlyingBuffer(100) { Processor = processor, Added = OnLine };
+            if (null != processorName)
+                processors = processors.Where(x => x.ToString() == processorName);
+                
+            Processor = processors.FirstOrDefault();
+
+            var buffer = new FlyingBuffer(100) { Processor = Processor, Added = OnLine };
             var readers = journals.Select(x => new FlyingReader(x, buffer)).ToArray();
 
             while(true) Thread.Sleep(100);
         }
 
         static Session Session;
+        private static Processor Processor;
 
         static string NormalizeLength(string s, int width)
         {
@@ -132,11 +151,13 @@ namespace Journals.Command
             WithColumn(line, "@mt", NormalizeLineBreaksEtc);
             WithColumn(line, "@x", NormalizeLineBreaksEtc);
 
+            var att = line.At<DateTime>("@t");
+
             var acc = new StringBuilder();
 
-            for (int i = 0; i < Session.Columns.Length; i++)
+            for (int i = 0; i < Processor.Columns.Length; i++)
             {
-                var column = Session.Columns[i];
+                var column = Processor.Columns[i];
 
                 var f = line[column.Header] ?? "";
 
@@ -145,7 +166,7 @@ namespace Journals.Command
 
                 acc.Append(f);
 
-                if (Session.Columns.Length - 1 > i)
+                if (Processor.Columns.Length - 1 > i)
                     acc.Append(" ");
             }
 
